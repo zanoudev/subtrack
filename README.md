@@ -48,7 +48,7 @@ npm install
 
 ### 2. Configure Firebase
 
-Create a `firebaseConfig.js` file under `src/firebase/` with your project credentials:
+Create a `firebaseConfig.js` file under `src/firebase/` with my project credentials (available in the Firebase Console):
 
 ```js
 import { initializeApp } from "firebase/app";
