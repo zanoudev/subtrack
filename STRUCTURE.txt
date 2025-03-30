@@ -1,0 +1,52 @@
+DATABASE STRUCTURE
+--------------------------------------------------
+
+/clients 
+└─ clientId
+   ├─ firstName
+   ├─ lastName
+   ├─ email
+   ├─ preferences         (business categories selected during signup)
+   ├─ stripeCustomerId
+   └─ subscriptions
+      └─ subscriptionId
+         ├─ planId
+         ├─ expiryDate    (end of billing cycle - default)
+         ├─ minSubPeriod  (in months)
+         └─ status        (active, cancelled, expired, on hold)
+
+--------------------------------------------------
+
+/providers
+└─ providerId
+   ├─ businessName
+   ├─ email
+   ├─ bio
+   ├─ phone
+   ├─ website
+   ├─ category
+   ├─ stripeAccountId
+   └─ business-plans    (array of planIds)
+
+--------------------------------------------------
+
+/plans
+└─ planId
+   ├─ title
+   ├─ providerId        (reference to the provider who created it)
+   ├─ price
+   ├─ currency
+   ├─ billingCycle      (monthly, annual, bi-weekly)
+   ├─ subscriberList    (array of clientIds)
+   └─ gracePeriod       (days)
+
+--------------------------------------------------
+
+(OBSOLETE - MANAGED BY STRIPE)
+
+/payments
+└─ paymentId
+   ├─ subscriptionId
+   ├─ clientId
+   ├─ paymentAmount
+   └─ paymentDateTime
