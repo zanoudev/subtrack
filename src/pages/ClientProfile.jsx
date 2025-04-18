@@ -1,10 +1,11 @@
 import { useState, useEffect } from "react";
-import { getAuth } from "firebase/auth";
+import { getAuth, onAuthStateChanged } from "firebase/auth";
 import { doc, getDoc, updateDoc } from "firebase/firestore";
 import { db } from "../firebase/firebaseConfig";
 import { FaEnvelope } from "react-icons/fa";
 import PlanCard from "../components/PlanCard";
 import SetupPaymentButton from "../components/SetupPaymentButton";
+import loadingIllustration from "../assets/illustrations/Loading-Time.svg";
 
 const ClientProfile = () => {
   const [clientData, setClientData] = useState(null);
@@ -14,22 +15,40 @@ const ClientProfile = () => {
   const [formData, setFormData] = useState({});
 
   useEffect(() => {
-    const fetchClientData = async () => {
-      const auth = getAuth();
-      const user = auth.currentUser;
+    const auth = getAuth();
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user) {
         const clientDocRef = doc(db, "clients", user.uid);
         const clientSnap = await getDoc(clientDocRef);
+  
         if (clientSnap.exists()) {
           const data = clientSnap.data();
           setClientData(data);
-          setSubscriptions(data.subscriptions || []);
+  
+          const rawSubs = Array.isArray(data.subscriptions)
+            ? data.subscriptions
+            : Object.values(data.subscriptions || []);
+  
+          const fullPlans = await Promise.all(
+            rawSubs.map(async (sub) => {
+              const planRef = doc(db, "plans", sub.planId);
+              const planSnap = await getDoc(planRef);
+              if (planSnap.exists()) {
+                return { id: planSnap.id, ...planSnap.data() };
+              }
+              return null;
+            })
+          );
+  
+          setSubscriptions(fullPlans.filter(Boolean));
         }
       }
       setLoading(false);
-    };
-    fetchClientData();
+    });
+  
+    return () => unsubscribe();
   }, []);
+  
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -72,7 +91,12 @@ const ClientProfile = () => {
   };
 
   if (loading) {
-    return <div className="text-center py-10">Loading...</div>;
+    return (
+      <div className="flex flex-col items-center justify-center py-16">
+        <img src={loadingIllustration} alt="Loading..." className="w-60 mb-6" />
+        <p className="text-gray-500 text-lg">Loading your profile...</p>
+      </div>
+    );
   }
 
   if (!clientData) {
@@ -168,24 +192,29 @@ const ClientProfile = () => {
         </div>
       </section>
 
+      {/* Subscriptions */}
       <section className="mb-10 w-full">
         <h2 className="text-2xl font-semibold mb-4">My Subscriptions</h2>
         <div className="flex flex-wrap gap-4">
           {subscriptions.length > 0 ? (
             subscriptions.map((plan) => (
-              <PlanCard
-                key={plan.id}
-                title={plan.title}
-                description={plan.description}
-                price={plan.price}
-                provider={plan.provider}
-              />
+              <div key={plan.id} className="flex flex-col items-start">
+                <PlanCard {...plan} isSubscribed={true} />
+                <button
+                  onClick={() => handleUnsubscribe(plan.id)}
+                  className="mt-3 px-4 py-2 border border-blue-500 text-blue-600 font-semibold rounded-lg hover:bg-blue-100 transition"
+                >
+                  Unsubscribe
+                </button>
+              </div>
             ))
           ) : (
             <p className="text-gray-600">No subscriptions yet.</p>
           )}
         </div>
       </section>
+
+
     </div>
   );
 };

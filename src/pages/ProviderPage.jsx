@@ -2,10 +2,12 @@ import React, { useState, useEffect } from "react";
 import { useParams } from "react-router-dom";
 import { fetchProviderById } from "../firebase/firestoreProviders";
 import { getProviderPlans } from "../firebase/firestorePlans";
-import PlanCard from "../components/PlanCard";
 import { getAuth } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
 import { db } from "../firebase/firebaseConfig";
+import PlanCard from "../components/PlanCard";
+import loadingIllustration from "../assets/illustrations/Loading-Time.svg";
+
 
 const ProviderPage = () => {
   const { providerId } = useParams();
@@ -58,7 +60,15 @@ const ProviderPage = () => {
 
   return (
     <div className="w-full min-h-screen bg-gray-100 px-10 py-16">
-      <div className="max-w-4xl mx-auto p-8">
+      <div className="w-full p-10">
+        {/* cover image */}
+        {provider.coverImageUrl && (
+          <img
+            src={provider.coverImageUrl}
+            alt={`${provider.businessName} cover`}
+            className="w-full h-64 object-cover rounded-xl mb-6 shadow-md"
+          />
+        )}
         {/* Business Name as Page Title */}
         <h1 className="text-4xl font-bold mb-4">{provider.businessName}</h1>
         {/* Provider Bio */}
@@ -75,11 +85,6 @@ const ProviderPage = () => {
             plans.map((plan) => (
               <div key={plan.id} className="flex flex-col">
                 <PlanCard {...plan} />
-                {userType === "client" && (
-                  <button className="mt-2 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition">
-                    Subscribe
-                  </button>
-                )}
               </div>
             ))
           ) : (

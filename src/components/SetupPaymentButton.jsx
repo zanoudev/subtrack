@@ -73,7 +73,7 @@ const SetupPaymentButton = ({ stripeCustomerId: propStripeCustomerId }) => {
     <button
       onClick={handleSetup}
       disabled={loading}
-      className="px-6 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition"
+      className="px-6 py-2 bg-[#7069fe] text-white rounded-md hover:bg-[#a194ff] transition"
     >
       {loading ? "Setting up..." : "Add payment method with Stripe"}
     </button>

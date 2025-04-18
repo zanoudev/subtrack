@@ -1,11 +1,3 @@
-/*
-• /create-stripe-account: For providers who need to create a Connect account.
-• /create-stripe-account-link: For generating an onboarding link for providers.
-• /create-stripe-customer: For clients to create a Stripe Customer object.
-• /create-stripe-checkout-session: For clients to generate a Checkout session to add a payment method via Stripe Checkout.
-• Plus optional endpoints for refresh and return for Connect onboarding.
-*/
-
 import express from "express";
 import cors from "cors";
 import Stripe from "stripe";
@@ -19,21 +11,15 @@ const stripe = new Stripe(
 app.use(cors());
 app.use(express.json());
 
-// -----------------------------
-// Provider Endpoints
-// -----------------------------
+/* ----------------------------
+   Provider Endpoints
+---------------------------- */
 
-// Endpoint to create a Stripe Connect account for providers
+// Create Stripe Connect account
 app.post("/create-stripe-account", async (req, res) => {
   try {
-    const { userId, userType } = req.body; // Optional for logging/future use
-    console.log(
-      "Received request to create Stripe account for:",
-      userId,
-      userType
-    );
+    const { userId, userType } = req.body;
     const account = await stripe.accounts.create({ type: "express" });
-    console.log("Created Stripe account:", account.id);
     res.json({ stripeAccountId: account.id });
   } catch (error) {
     console.error("Error creating Stripe account:", error);
@@ -41,7 +27,7 @@ app.post("/create-stripe-account", async (req, res) => {
   }
 });
 
-// Endpoint to create a Stripe account link for onboarding providers
+// Create onboarding link
 app.post("/create-stripe-account-link", async (req, res) => {
   try {
     const { stripeAccountId } = req.body;
@@ -50,8 +36,10 @@ app.post("/create-stripe-account-link", async (req, res) => {
     }
     const accountLink = await stripe.accountLinks.create({
       account: stripeAccountId,
-      refresh_url: "http://localhost:3000/stripe/refresh",
-      return_url: "http://localhost:3000/stripe/return",
+      refresh_url:
+        "http://localhost:5173/provider-profile?onboarding_refresh=true",
+      return_url:
+        "http://localhost:5173/provider-profile?onboarding_success=true",
       type: "account_onboarding",
     });
     res.json({ url: accountLink.url });
@@ -61,23 +49,17 @@ app.post("/create-stripe-account-link", async (req, res) => {
   }
 });
 
-// -----------------------------
-// Client Endpoints
-// -----------------------------
+/* ----------------------------
+   Client Endpoints
+---------------------------- */
 
-// Endpoint to create a new Stripe Customer for clients
+// Create Stripe customer
 app.post("/create-stripe-customer", async (req, res) => {
   try {
     const { userId, userType } = req.body;
-    console.log(
-      "Received request to create Stripe customer for:",
-      userId,
-      userType
-    );
     const customer = await stripe.customers.create({
       description: `Stripe Customer for ${userType} ${userId}`,
     });
-    console.log("Created Stripe customer:", customer.id);
     res.json({ stripeCustomerId: customer.id });
   } catch (error) {
     console.error("Error creating Stripe customer:", error);
@@ -85,20 +67,22 @@ app.post("/create-stripe-customer", async (req, res) => {
   }
 });
 
-// Endpoint to create a Stripe Checkout session for setting up payment method for clients
+// Create a setup session to add card
 app.post("/create-stripe-checkout-session", async (req, res) => {
   try {
     const { stripeCustomerId } = req.body;
     if (!stripeCustomerId) {
       return res.status(400).json({ error: "Missing stripeCustomerId" });
     }
+
     const session = await stripe.checkout.sessions.create({
       customer: stripeCustomerId,
       payment_method_types: ["card"],
       mode: "setup",
-      success_url: "http://localhost:5173/profile?setup_success=true",
-      cancel_url: "http://localhost:5173/profile?setup_cancelled=true",
+      success_url: "http://localhost:5173/client-profile?setup_success=true",
+      cancel_url: "http://localhost:5173/client-profile?setup_cancelled=true",
     });
+
     res.json({ url: session.url });
   } catch (error) {
     console.error("Error creating Stripe Checkout session:", error);
@@ -106,12 +90,83 @@ app.post("/create-stripe-checkout-session", async (req, res) => {
   }
 });
 
-// -----------------------------
-// Optional Endpoints for Connect Onboarding (Providers)
-// -----------------------------
+// Get saved payment methods
+app.get("/getUserPaymentMethod", async (req, res) => {
+  try {
+    const { customerId } = req.query;
+    if (!customerId)
+      return res.status(400).json({ error: "Missing customerId" });
+
+    const paymentMethods = await stripe.paymentMethods.list({
+      customer: customerId,
+      type: "card",
+    });
+
+    res.json(paymentMethods.data);
+  } catch (error) {
+    console.error("Error fetching payment methods:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/* ----------------------------
+   Subscription Handling
+---------------------------- */
+
+// Create recurring price and product
+app.post("/create-stripe-price", async (req, res) => {
+  const { title, price, billingCycle } = req.body;
+
+  console.log("Received create-stripe-price:", { title, price, billingCycle });
+
+  if (!title || !price || !billingCycle) {
+    return res
+      .status(400)
+      .json({ error: "Missing title, price, or billingCycle" });
+  }
+
+  try {
+    const product = await stripe.products.create({ name: title });
+
+    const stripePrice = await stripe.prices.create({
+      unit_amount: Math.round(price * 100),
+      currency: "cad",
+      recurring: { interval: billingCycle.toLowerCase() },
+      product: product.id,
+    });
+
+    res.json({ stripePriceId: stripePrice.id });
+  } catch (err) {
+    console.error("Error creating Stripe price:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Create a subscription
+app.post("/create-subscription", async (req, res) => {
+  const { customerId, priceId } = req.body;
+
+  try {
+    const subscription = await stripe.subscriptions.create({
+      customer: customerId,
+      items: [{ price: priceId }],
+      payment_behavior: "default_incomplete",
+      expand: ["latest_invoice.payment_intent"],
+    });
+
+    res.json({ subscriptionId: subscription.id });
+  } catch (err) {
+    console.error("Subscription error:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/* ----------------------------
+   Stripe Connect Return Routes
+---------------------------- */
 
 app.get("/stripe/refresh", (req, res) => {
-  res.redirect("/profile");
+  res.redirect("/provider-profile");
 });
 
 app.get("/stripe/return", async (req, res) => {

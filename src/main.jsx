@@ -26,6 +26,9 @@ import ConfigPlan from "./pages/ConfigPlan";
 // Business public profile
 import ProviderPage from "./pages/ProviderPage";
 
+// Checkout page for clients
+import SubscribeCheckout from "./pages/SubscribeCheckout";
+
 
 // Conditional rendering - only using Navbar for pages in protected layout
 const ProtectedLayout = () => {
@@ -59,6 +62,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(
           <Route path="/config-plan" element={<ConfigPlan />} />
           <Route path="/config-plan/:planId" element={<ConfigPlan />} />
           <Route path="/provider-page/:providerId" element={<ProviderPage />} />
+          <Route path="/checkout/:planId" element={<SubscribeCheckout />} />
         </Route>
       </Routes>
     </Router>
